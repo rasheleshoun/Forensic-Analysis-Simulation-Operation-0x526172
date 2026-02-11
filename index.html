@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forensic Workstation | Case 2026-EX-01</title>
+    
+    <style>
+        :root { 
+            --neon: #00ff41; 
+            --danger: #ff3e3e; 
+            --accent: #ff69b4; 
+            --bg: #0d0d0d; 
+            --card: #121212; 
+        }
+
+        body { 
+            background-color: var(--bg); color: var(--neon); 
+            font-family: 'Courier New', monospace; margin: 0; 
+            display: flex; flex-direction: row; height: 100vh; overflow: hidden; 
+        }
+
+        @media (max-width: 1024px) {
+            body { flex-direction: column; overflow-y: auto; height: auto; }
+            #sidebar, #main, #inspector { width: 100% !important; border: none !important; border-bottom: 2px solid #333; height: auto !important; }
+            #main { min-height: 500px; }
+            .tab-row { flex-wrap: wrap; }
+            .tab { flex-grow: 1; text-align: center; margin-bottom: 5px; }
+        }
+        
+        #scenario-overlay, #report-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 999;
+            display: none; align-items: center; justify-content: center; padding: 20px;
+        }
+        #scenario-overlay { display: flex; }
+
+        .modal-box {
+            max-width: 850px; width: 100%; max-height: 85vh; padding: 30px; 
+            border: 1px solid var(--accent); background: #000; 
+            box-shadow: 0 0 30px rgba(255, 105, 180, 0.2);
+            overflow-y: auto; color: #ccc;
+        }
+
+        #sidebar { width: 280px; background: #000; border-right: 2px solid #333; padding: 20px; display: flex; flex-direction: column; flex-shrink: 0; }
+        .evidence-box { padding: 8px; border: 1px solid #222; margin-bottom: 8px; font-size: 0.7em; color: #444; border-radius: 4px; }
+        .evidence-box.found { border-color: var(--accent); color: var(--accent); background: rgba(255, 105, 180, 0.1); }
+        
+        #regulatory-timer { margin-top: 20px; padding: 10px; border: 1px solid #222; font-size: 0.7em; color: #555; text-align: center; }
+        #regulatory-timer.active { border-color: var(--danger); color: var(--danger); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        #main { flex: 1; display: flex; flex-direction: column; padding: 15px; border-right: 2px solid #333; overflow-y: auto; }
+        .tab-row { display: flex; border-bottom: 2px solid #333; margin-bottom: 15px; }
+        .tab { padding: 10px; cursor: pointer; background: #1a1a1a; color: #888; border: none; margin-right: 5px; font-family: inherit; font-size: 0.75em; }
+        .tab.active { background: var(--accent); color: #000; font-weight: bold; }
+        
+        .content-pane { display: none; }
+        .content-pane.active { display: block; }
+        
+        .edu-brief { background: rgba(255, 105, 180, 0.05); border: 1px solid var(--accent); padding: 15px; margin-bottom: 15px; font-size: 0.8em; color: #fff; line-height: 1.6; }
+        .edu-brief b { color: var(--accent); text-transform: uppercase; }
+        .path-label { color: var(--accent); font-size: 0.75em; margin-bottom: 15px; font-weight: bold; display: block; border-bottom: 1px dashed #333; padding-bottom: 5px; cursor: pointer; }
+        .path-label:hover { color: #fff; }
+
+        .log { border-left: 3px solid #333; padding: 10px; background: var(--card); margin-bottom: 12px; font-size: 0.75em; transition: 0.2s; }
+        .log:hover { border-left-color: var(--accent); cursor: pointer; background: #1a1a1a; }
+
+        #inspector { width: 420px; background: #050505; padding: 20px; display: flex; flex-direction: column; border-left: 1px solid #222; overflow-y: auto; flex-shrink: 0; }
+        
+        button { background: var(--accent); color: #000; border: none; padding: 12px; cursor: pointer; font-weight: bold; font-family: inherit; width: 100%; margin-top: 10px; border-radius: 2px; }
+        #view-report-btn { background: #333; color: var(--accent); border: 1px solid var(--accent); margin-top: auto; }
+        #export { background: var(--neon); margin-bottom: 10px; }
+        button:disabled { opacity: 0.2; cursor: not-allowed; }
+
+        pre { white-space: pre-wrap; font-size: 0.82em; color: var(--neon); line-height: 1.4; }
+        .hex-viewer { background: #000; color: #555; font-size: 0.8em; padding: 10px; border: 1px solid #333; white-space: pre; margin: 10px 0; }
+    </style>
+</head>
+<body>
+
+<div id="scenario-overlay">
+    <div class="modal-box">
+        <h2 style="color:var(--accent); margin-top:0;">CASE FILE: 2026-EX-01 (Operation: 0x526172)</h2>
+        <p><strong>MISSION:</strong> Perform a comprehensive digital forensic analysis on Workstation-05 to identify point of entry, persistence, exfiltration, lateral movement, and remediation requirements.</p>
+        <button onclick="document.getElementById('scenario-overlay').style.display='none'">INITIALIZE WORKSTATION</button>
+    </div>
+</div>
+
+<div id="report-overlay">
+    <div class="modal-box">
+        <h2 style="color:var(--accent); margin-top:0;">FULL FORENSIC FINDINGS</h2>
+        <pre id="live-report-text">Generating technical narrative...</pre>
+        <button onclick="document.getElementById('report-overlay').style.display='none'">CLOSE PREVIEW</button>
+    </div>
+</div>
+
+<div id="sidebar">
+    <div style="color:var(--accent); font-size:0.8em; margin-bottom:15px; letter-spacing:1px;">EVIDENCE LOG</div>
+    <div id="ev-1" class="evidence-box">1. NET: Point of Entry</div>
+    <div id="ev-2" class="evidence-box">2. DISK: Hash Verification</div>
+    <div id="ev-3" class="evidence-box">3. LNK: User Activity (PII)</div>
+    <div id="ev-4" class="evidence-box">4. MEM: Active Injection</div>
+    <div id="ev-5" class="evidence-box">5. DISK: Slack Space</div>
+    <div id="ev-6" class="evidence-box">6. NET: Exfiltration Log</div>
+    <div id="ev-7" class="evidence-box">7. LATERAL: Pivot Attempt</div>
+    <div id="ev-8" class="evidence-box">8. REMEDIATION: IR Tactics</div>
+    
+    <div id="regulatory-timer">PII NOT YET DETECTED</div>
+
+    <button id="view-report-btn" onclick="openFullReport()">FULL FORENSIC FINDINGS</button>
+    <button id="export" onclick="downloadReport()" disabled>DOWNLOAD FULL REPORT</button>
+</div>
+
+<div id="main">
+    <div class="tab-row">
+        <button class="tab active" onclick="showPane(event, 'net')">NETWORK</button>
+        <button class="tab" onclick="showPane(event, 'mft')">DISK (MFT)</button>
+        <button class="tab" onclick="showPane(event, 'lnk')">LNK FILES</button>
+        <button class="tab" onclick="showPane(event, 'mem')">MEMORY</button>
+        <button class="tab" onclick="showPane(event, 'slack')">SLACK SPACE</button>
+        <button class="tab" onclick="showPane(event, 'pivot')">LATERAL</button>
+        <button class="tab" onclick="showPane(event, 'remediation')">REMEDIATION</button>
+    </div>
+
+    <div id="net" class="content-pane active">
+        <div class="edu-brief"><b>Forensic Significance:</b> Network logs identify Command & Control (C2) patterns. Analysts examine PCAP data to identify <b>Command & Control (C2)</b> communication patterns and outbound exfiltration spikes to quantify compromised data for breach thresholds.</div>
+        <span class="path-label">LOCATION: \Network_Logs\Captured_Traffic.pcap</span>
+        <div class="log" onclick="inspect('ingress')"><strong>[13:44:58]</strong> GET /srv_host_cache.exe -> 194.22.108.5</div>
+        <div class="log" onclick="inspect('exfil')"><strong>[14:15:22]</strong> UPLOAD 154.2 MB -> 194.22.108.5</div>
+    </div>
+
+    <div id="mft" class="content-pane">
+        <div class="edu-brief"><b>Forensic Significance:</b> The MFT is the <b>"Secret Notepad"</b> of Windows. We use Hashing to identify malware masquerading as system files and analyze timestamps to detect <b>Timestomping</b> used to mask residency.</div>
+        <span class="path-label">LOCATION: C:\$MFT (Master File Table)</span>
+        <div class="log" onclick="inspect('mft-dirty')"><strong>srv_host_cache.exe</strong> | Verify Signature and Timestamp Audit</div>
+    </div>
+
+    <div id="lnk" class="content-pane">
+        <div class="edu-brief"><b>Forensic Significance:</b> LNK artifacts prove <b>User Activity</b>. In PII cases, these prove specific sensitive folders (like Payroll or HR) were accessed, which determines the scope of mandatory breach notifications.</div>
+        <span class="path-label">LOCATION: \Users\%User%\AppData\Roaming\Microsoft\Windows\Recent\</span>
+        <div class="log" onclick="inspect('lnk-dirty')"><strong>payroll_2026.xlsx.lnk</strong> | Accessed: 13:47:05</div>
+    </div>
+
+    <div id="mem" class="content-pane">
+        <div class="edu-brief"><b>Forensic Significance:</b> RAM analysis captures <b>Volatile Evidence</b>. Identifying <b>RWX (Read-Write-Execute)</b> permissions in VAD nodes confirms an active shellcode injection without file-system interaction.</div>
+        <span class="path-label">LOCATION: \Forensic_Dump\PhysicalMemory.raw</span>
+        <div class="log" onclick="inspect('mem-dirty')"><strong>PID: 3412</strong> | Protection: PAGE_EXECUTE_READWRITE</div>
+    </div>
+
+    <div id="slack" class="content-pane">
+        <div class="edu-brief"><b>Forensic Significance:</b> Slack Space is a staging area. Carving here allows us to recover the specific archives the attacker created, identifying exactly what PII was packed for exfiltration.</div>
+        <span class="path-label">LOCATION: \Physical_Drive_0\Unallocated_Clusters\</span>
+        <div class="log" onclick="inspect('slack-dirty')">Cluster 88210 | Signature Scan: Rar! Match</div>
+    </div>
+
+    <div id="pivot" class="content-pane">
+        <div class="edu-brief"><b>Forensic Significance:</b> Lateral Movement identifies an attacker's attempt to "pivot" from a compromised host to high-value targets (Domain Controllers, SQL Servers). Analysts examine <b>Event ID 4624/4648</b> for logon attempts and <b>RDP Cache</b> for traces of remote sessions.</div>
+        <span class="path-label">LOCATION: \Windows\System32\winevt\Logs\Security.evtx</span>
+        <div class="log" onclick="inspect('lat-pivot')"><strong>[14:20:05]</strong> Event ID 4648: Explicit Credentials used for 10.0.0.5 (DC-01)</div>
+    </div>
+
+    <div id="remediation" class="content-pane">
+        <div class="edu-brief"><b>Forensic Significance:</b> Following the <b>Evidence Preservation</b> phase, the analyst provides <b>Remediation Recommendations</b>. These are tactical steps derived from forensic findings to guide the Incident Response team in the Eradication phase of the lifecycle.</div>
+        <span class="path-label" onclick="openFullReport()">LOCATION: Post-Preservation Tactical Recommendations [CLICK TO PREVIEW REPORT]</span>
+        <div class="log" onclick="inspect('remediation-plan')"><strong>[REPORT]</strong> View Tactical Remediation Requirements</div>
+    </div>
+</div>
+
+<div id="inspector">
+    <div class="inspector-header" style="color:var(--accent)">Inspector Panel</div>
+    <div id="inspector-content">Analyze artifacts to populate report.</div>
+</div>
+
+<script>
+    let evidenceLog = [];
+    const intel = {
+        'ingress': { title: 'Initial Access', text: 'Suspicious ingress from C2 IP 194.22.108.5 (RU) at 13:44:58.', id: 'ev-1' },
+        'exfil': { title: 'Exfiltration Log', text: 'Significant 154.2 MB outbound spike detected at 14:15:22.', id: 'ev-6' },
+        'mft-dirty': { title: 'Anti-Forensics', text: 'Timestomping detected on $SI attribute. SHA-1 hash confirmed as Trojan.', hash: '92730427321a1c4ccfc0d0580834daef98121efa', id: 'ev-2' },
+        'lnk-dirty': { title: 'PII Targeting', text: 'LNK confirms access to Payroll Spreadsheet containing sensitive PII.', id: 'ev-3' },
+        'mem-dirty': { title: 'Memory Analysis', text: 'Active RWX injection in PID 3412. Shellcode detected in VAD tree.', id: 'ev-4' },
+        'slack-dirty': { title: 'Archive Staging', text: 'Carved Rar! header [52 61 72 21] from Cluster 88210.', id: 'ev-5', hex: true },
+        'lat-pivot': { title: 'Lateral Movement', text: 'Detected Event ID 4648. Attacker used stolen credentials to attempt RDP connection to Domain Controller (10.0.0.5).', id: 'ev-7' },
+        'remediation-plan': { title: 'Tactical Recommendations', text: 'Based on findings: Host Isolation, RAM Flush (PID 3412), MFT recovery, and Global Domain Credential Reset mandated for IR team.', id: 'ev-8', isReportLink: true }
+    };
+
+    function showPane(e, id) {
+        document.querySelectorAll('.content-pane').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        e.currentTarget.classList.add('active');
+    }
+
+    function inspect(key) {
+        const item = intel[key];
+        let html = `<div style="color:var(--accent);font-weight:bold;margin-bottom:10px;">${item.title}</div><p>${item.text}</p>`;
+        
+        if (item.hash) {
+            html += `<button onclick="verifyHash('${item.id}', '${item.text.replace(/'/g, "\\'")}')">QUERY THREAT DATABASE</button>`;
+        } else if (item.hex) {
+            html += `<div class="hex-viewer">Offset 0x010: <span style="color:var(--danger)">52 61 72 21</span> 1A 07 00 CF</div>
+                     <button onclick="logEv('${item.id}', 'Slack Space Carving: Identified hidden RAR archive header (52 61 72 21) containing PII.')">COLLECT EVIDENCE</button>`;
+        } else if (item.isReportLink) {
+            html += `<button onclick="logEv('${item.id}', '${item.text.replace(/'/g, "\\'")}'); openFullReport();">VIEW FULL REPORT</button>`;
+        } else {
+            html += `<button onclick="logEv('${item.id}', '${item.text.replace(/'/g, "\\'")}')">COLLECT EVIDENCE</button>`;
+        }
+        document.getElementById('inspector-content').innerHTML = html;
+    }
+
+    function verifyHash(id, note) {
+        const content = document.getElementById('inspector-content');
+        content.innerHTML += `<p style="color:var(--danger);margin-top:10px;">[!] MALICIOUS HASH DETECTED.</p><button onclick="logEv('${id}', 'Hash Verification: Malicious binary SHA-1 confirmed.')">COLLECT EVIDENCE</button>`;
+    }
+
+    function logEv(id, note) {
+        if (!evidenceLog.includes(note)) {
+            evidenceLog.push(note);
+            const box = document.getElementById(id);
+            if(box) box.classList.add('found');
+        }
+        if (id === 'ev-3') startRegulatoryClock();
+        if(document.querySelectorAll('.evidence-box.found').length === 8) {
+            document.getElementById('export').disabled = false;
+        }
+        updateLiveReport();
+    }
+
+    function startRegulatoryClock() {
+        const timer = document.getElementById('regulatory-timer');
+        if (timer.classList.contains('active')) return;
+        timer.classList.add('active');
+        timer.innerText = `GDPR/CCPA WINDOW: 72h 00m Remaining`;
+    }
+
+    function openFullReport() {
+        updateLiveReport();
+        document.getElementById('report-overlay').style.display = 'flex';
+    }
+
+    function generateReportText() {
+        const timestamp = new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '');
+        return `
+================================================================================
+                    OFFICIAL FORENSIC INVESTIGATION REPORT
+================================================================================
+CASE ID: 2026-EX-01 | DATE: ${timestamp}
+STATUS: ${evidenceLog.length === 8 ? 'FINALIZED' : 'IN PROGRESS'} | CLASSIFICATION: CONFIDENTIAL
+--------------------------------------------------------------------------------
+
+1. EXECUTIVE SUMMARY & DATA SENSITIVITY
+---------------------------------------
+Investigation on Workstation-05 confirms a high-severity breach involving PII.
+Analysis confirms 'payroll_2026.xlsx' was targeted. Based on the 154.2MB
+exfiltration volume to Russian C2 (194.22.108.5), this is a mandatory 
+reportable event under GDPR/CCPA. The intrusion utilized advanced techniques 
+including $MFT timestomping and PAGE_EXECUTE_READWRITE (RWX) memory injection.
+
+2. CHAIN OF CUSTODY & EVIDENCE LOG
+----------------------------------
+${evidenceLog.length ? evidenceLog.map((item, i) => `[ARTIFACT-0${i+1}] ${item}`).join('\n') : "No artifacts collected yet."}
+
+3. TECHNICAL FINDINGS & CORRELATION
+-----------------------------------
+A. INITIAL ACCESS (NETWORK):
+At 13:44:58, an inbound connection from IP 194.22.108.5 (RU) delivered the 
+payload 'srv_host_cache.exe'. This ingress correlates exactly with the 
+subsequent outbound data spike observed later in the system timeline.
+
+B. ANTI-FORENSICS & PERSISTENCE (DISK/MFT):
+MFT $STANDARD_INFORMATION attribute was backdated to 2010 to hide among 
+legacy binaries. Integrity verification via SHA-1 hashing confirmed the 
+file is a known Trojan signature, overriding falsified metadata.
+
+C. EXECUTION & VOLATILE ARTIFACTS (MEMORY):
+Malware residency was confirmed in the VAD tree under PID 3412. The presence 
+of PAGE_EXECUTE_READWRITE (RWX) memory nodes proves active shellcode 
+injection without file-system interaction, bypassing standard scanners.
+
+D. DATA STAGING & EXFILTRATION (SLACK SPACE):
+Evidence of specific data targeting was found in recent user activity (LNK). 
+Stolen documents were packed into a hidden RAR archive, discovered via 
+magic byte carving [52 61 72 21] in unallocated clusters.
+
+E. LATERAL MOVEMENT (EVENT LOGS):
+Analysis of security events identifies a pivot attempt at 14:20:05. Using 
+stolen administrative credentials, the threat actor attempted an RDP 
+connection to DC-01 (10.0.0.5) to expand the scope of the compromise.
+
+4. TACTICAL REMEDIATION & PREVENTION RECOMMENDATIONS
+---------------------------------------------------
+- DPO NOTIFICATION: Required within 72 hours under mandatory breach laws.
+- BREACH NOTIFICATION: Legal review of affected PII required for disclosure.
+- REMEDIATION: Full system wipe, re-imaging, and enterprise credential reset.
+- PREVENTION: Implement DLP and EDR monitoring for RWX memory allocations.
+
+================================================================================
+                            END OF REPORT
+================================================================================`;
+    }
+
+    function updateLiveReport() { document.getElementById('live-report-text').innerText = generateReportText(); }
+    function downloadReport() {
+        const blob = new Blob([generateReportText()], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'Forensic_Report.txt';
+        a.click();
+    }
+</script>
+</body>
+</html>
