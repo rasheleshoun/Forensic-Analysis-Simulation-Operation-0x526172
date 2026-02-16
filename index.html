@@ -240,9 +240,10 @@
     }
 
     function generateReportText() {
-        // Keep toISOString() as it is the industry standard for forensic logs
+        // 1. Keep this as is
         const timestamp = new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '');
         
+        // 2. Add the text "(UTC / Zulu Time)" right here:
         return `
 ================================================================================
                     OFFICIAL FORENSIC INVESTIGATION REPORT
