@@ -240,7 +240,9 @@
     }
 
     function generateReportText() {
+        // Keep toISOString() as it is the industry standard for forensic logs
         const timestamp = new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '');
+        
         return `
 ================================================================================
                     OFFICIAL FORENSIC INVESTIGATION REPORT
